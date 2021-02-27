@@ -1,3 +1,4 @@
+use rand::{prelude::ThreadRng, thread_rng, Rng};
 use std::rc::Rc;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Weak};
@@ -9,17 +10,17 @@ struct World
     - agents
     - grid
     > update_grid
+    > print_grid
     > message
     > announce_tag (all untaggable > normal)
     > tick - agents_move, agents_tag; update grid
-    > print
 
 struct Agent
     - position
     - state - tagged, untaggable, normal
     - &world
     > new
-    > move
+    > move - check edges
     > find neighbor -> Option index - read from world (need response so can't be message)
     > tag - if tagged
             - find neighbor
@@ -48,11 +49,27 @@ struct World {
     grid: Grid,
 }
 impl World {
-    fn new() -> Self {
-        Self {
+    fn new(n_of_agents: usize) -> Rc<RefCell<World>> {
+        let world = World {
             agents: Vec::new(),
             grid: Vec::with_capacity(SIZE),
+        };
+
+        // create link to world
+        let world_link: Rc<RefCell<World>> = Rc::new(RefCell::new(world));
+
+        // generate agents and add to world
+        let mut rng = thread_rng();
+        for _ in 0..n_of_agents {
+            let agent = Agent::new(&mut rng, &world_link);
+            world_link.borrow_mut().agents.push(agent);
         }
+
+        // make one Tagged
+        let tag_index = rng.gen_range(0..n_of_agents);
+        world_link.borrow_mut().agents[tag_index].status = Status::Tagged;
+
+        world_link
     }
     fn update_grid(&mut self) {
         // init empty grid
@@ -65,11 +82,37 @@ impl World {
         });
         self.grid = new_grid;
     }
+    fn print_grid(&self) {
+        // print world
+        self.grid.iter().for_each(|row| {
+            let line: String = row
+                .iter()
+                .map(|field| match field {
+                    Some(Status::Tagged) => '#',
+                    Some(Status::UnTaggable) => '*',
+                    Some(Status::Normal) => 'o',
+                    None => '.',
+                })
+                .collect();
+            println!("| |{}| |", line)
+        });
+    }
+    fn tick(&self) {}
 }
 
 struct Agent {
     position: Position,
     status: Status,
+    world: Weak<RefCell<World>>,
+}
+impl Agent {
+    fn new(rng: &mut ThreadRng, world: &Rc<RefCell<World>>) -> Self {
+        Agent {
+            position: (rng.gen_range(0..SIZE), rng.gen_range(0..SIZE)),
+            status: Status::Normal,
+            world: Rc::downgrade(world),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -80,30 +123,7 @@ enum Status {
 }
 
 fn main() {
-    // create world
-    let world = Rc::new(RefCell::new(World::new()));
-
-    // generate agents and add to world
-    let a1 = Agent {
-        position: (0, 0),
-        status: Status::Normal,
-    };
-    let a2 = Agent {
-        position: (1, 1),
-        status: Status::Normal,
-    };
-    world.borrow_mut().agents.push(a1);
-    world.borrow_mut().agents.push(a2);
-
-    fn get_line_string(line: &Vec<Option<Status>>) -> String {
-        line.iter()
-            .map(|field| match field {
-                Some(_) => '#',
-                None => '.',
-            })
-            .collect()
-    }
-
+    let mut world = World::new(3);
     for _tick in 0..10 {
         // clear terminal
         print!("\x1B[2J");
@@ -111,18 +131,12 @@ fn main() {
         println!("|  ________________________  |");
 
         world.borrow_mut().update_grid();
-
-        // print world
-        world
-            .borrow()
-            .grid
-            .iter()
-            .for_each(|row| println!("| |{}| |", get_line_string(row)));
+        world.borrow_mut().print_grid();
 
         println!("| |________________________| |");
         println!(" ____________________________");
 
-        // move
+        // tick world
         world.borrow_mut().agents[0].position.0 += 1;
         world.borrow_mut().agents[1].position.1 += 1;
         thread::sleep(Duration::from_millis(1000));
