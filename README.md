@@ -76,15 +76,30 @@ OPTIONS:
 Just running `time` (the common linux tool). This example runs with a 10.000 moves. When -t0 is set, there is no thread sleep called between the moves. Toggling the -d flag shows how much time is spent on the graphical aspect of the program.
 
 ``` shell
-time cargo run --release -- -t0 -m10000 -d
+time target/release/agent-tag -t0 -m10000 -d
 
 ```
+
+Without Raion:
 
 ``` output
 ________________________________________________________
-Executed in   88,56 millis    fish           external 
-   usr time   76,61 millis  518,00 micros   76,09 millis 
-   sys time   12,21 millis  196,00 micros   12,02 millis 
+Executed in   19,63 millis    fish           external 
+   usr time   19,61 millis  528,00 micros   19,08 millis 
+   sys time    0,21 millis  215,00 micros    0,00 millis 
 ```
 
-Running just `time` is not a perfect benchmarking tool, especially for results under a second. But good enough for rough comparisons between different setups.
+with Raion:
+
+``` output
+________________________________________________________
+Executed in  155,57 millis    fish           external 
+   usr time  1208,72 millis  748,00 micros  1207,97 millis 
+   sys time  541,37 millis    0,00 micros  541,37 millis 
+
+```
+
+The results are surprising. The refactor from Rc to Arc (and giving each agent it's own RNG) didn't slow down the run much. But when then used with Raion, to use more threads for the many agents, the release binary actually ran 4x slower. Even when raising the number of agents from 40 to 400, the binary without Raion (single threaded) was 4x faster.
+Sometimes the results can vary allot based on use case and that's why these tests can be so useful when implementing parallelism. I left the two tested functions commented in the code with "# Raion"
+
+Running just `time` is not a perfect benchmarking tool, especially for results under a second. But good enough for rough comparisons between different setups I guess.

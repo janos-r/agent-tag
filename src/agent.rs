@@ -1,7 +1,6 @@
 use crate::world::World;
-use rand::{prelude::ThreadRng, Rng};
-use std::rc::Rc;
-use std::{cell::RefCell, rc::Weak};
+use rand::{prelude::SmallRng, Rng};
+use std::sync::{Arc, Mutex, Weak};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Status {
@@ -14,23 +13,25 @@ pub enum Status {
 pub struct Agent {
     pub position: (usize, usize),
     pub status: Status,
+    rng: SmallRng,
     announce_tag: bool,
     world_size: usize,
-    world_link: Weak<RefCell<World>>,
+    world_link: Weak<Mutex<World>>,
 }
 impl Agent {
     pub fn new(
-        rng: &mut ThreadRng,
+        mut rng: SmallRng,
         announce_tag: bool,
         world_size: usize,
-        world: &Rc<RefCell<World>>,
+        world: Arc<Mutex<World>>,
     ) -> Self {
         Agent {
             position: (rng.gen_range(0..world_size), rng.gen_range(0..world_size)),
             status: Status::Normal,
+            rng,
             announce_tag,
             world_size,
-            world_link: Rc::downgrade(world),
+            world_link: Arc::downgrade(&world),
         }
     }
     fn position_sub(&self, n: usize) -> usize {
@@ -45,8 +46,8 @@ impl Agent {
         (n + 1) % (self.world_size - 1)
     }
 
-    pub fn move_position(&mut self, rng: &mut ThreadRng) {
-        let direction = rng.gen_range(0..4);
+    pub fn move_position(&mut self) {
+        let direction = self.rng.gen_range(0..4);
         match direction {
             // on edges - pop out on the other side
             0 => self.position.0 = self.position_add(self.position.0),
@@ -65,7 +66,8 @@ impl Agent {
         self.world_link
             .upgrade()
             .expect("couldn't upgrade")
-            .borrow()
+            .lock()
+            .unwrap()
             .agents
             .iter()
             .position(|agent| {
@@ -85,7 +87,8 @@ impl Agent {
                 self.world_link
                     .upgrade()
                     .expect("couldn't upgrade")
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .tag_agent(my_index, target);
             }
         };

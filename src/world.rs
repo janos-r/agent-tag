@@ -1,7 +1,11 @@
 use crate::agent::{Agent, Status};
-use rand::{prelude::ThreadRng, thread_rng, Rng};
-use std::rc::Rc;
-use std::{cell::RefCell, thread, time::Duration};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rayon::{iter::ParallelIterator, prelude::*};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 type Grid = Vec<Vec<Option<Status>>>;
 
@@ -12,7 +16,7 @@ pub struct World {
     pub tag_count: u32,
 }
 impl World {
-    pub fn new(n_of_agents: usize, size: usize, announce_tag: bool) -> Rc<RefCell<World>> {
+    pub fn new(n_of_agents: usize, size: usize, announce_tag: bool) -> Arc<Mutex<World>> {
         let world = World {
             agents: Vec::new(),
             grid: Vec::with_capacity(size),
@@ -21,42 +25,41 @@ impl World {
         };
 
         // create link to world
-        let world_link: Rc<RefCell<World>> = Rc::new(RefCell::new(world));
+        let world_link: Arc<Mutex<World>> = Arc::new(Mutex::new(world));
 
         // generate agents and add to world
-        let mut rng = thread_rng();
         for _ in 0..n_of_agents {
-            let agent = Agent::new(&mut rng, announce_tag, size, &world_link);
-            world_link.borrow_mut().agents.push(agent);
+            let agent = Agent::new(
+                SmallRng::from_entropy(),
+                announce_tag,
+                size,
+                world_link.clone(),
+            );
+            world_link.lock().unwrap().agents.push(agent);
         }
 
         // make one Tagged
-        let tag_index = rng.gen_range(0..n_of_agents);
-        world_link.borrow_mut().agents[tag_index].status = Status::Tagged;
+        let tag_index = SmallRng::from_entropy().gen_range(0..n_of_agents);
+        world_link.lock().unwrap().agents[tag_index].status = Status::Tagged;
 
         // create grid
-        world_link.borrow_mut().update_grid();
+        world_link.lock().unwrap().update_grid();
 
         world_link
     }
-    pub fn tick(
-        world: &Rc<RefCell<World>>,
-        rng: &mut ThreadRng,
-        disable_grid: bool,
-        sleep_in_millis: u64,
-    ) {
-        world.borrow_mut().move_agents(rng);
+    pub fn tick(world: &Arc<Mutex<World>>, disable_grid: bool, sleep_in_millis: u64) {
+        world.lock().unwrap().move_agents();
 
         // regret: this still feels like a hack to me
         // tag agents
-        let agents = world.borrow().agents.clone();
+        let agents = world.lock().unwrap().agents.clone();
         agents
             .iter()
             .enumerate()
             .for_each(|(index, agent)| agent.tag(index));
 
         if !disable_grid {
-            world.borrow_mut().update_grid();
+            world.lock().unwrap().update_grid();
         }
 
         if sleep_in_millis > 0 {
@@ -71,19 +74,23 @@ impl World {
             .collect();
         // populate grid with agents
         self.agents.iter().for_each(|agent| {
-            new_grid[agent.position.1][agent.position.0] = Some(agent.status.clone())
+            new_grid[agent.position.1][agent.position.0] = Some(agent.status.clone());
         });
         self.grid = new_grid;
     }
-    fn move_agents(&mut self, rng: &mut ThreadRng) {
+    // # Raion
+    fn move_agents(&mut self) {
         self.agents
             .iter_mut()
-            .for_each(|agent| agent.move_position(rng));
+            // .par_iter_mut()
+            .for_each(|agent| agent.move_position());
     }
+    // # Raion
     pub fn tag_agent(&mut self, origin: usize, target: usize) {
         self.tag_count += 1;
         self.agents
             .iter_mut()
+            // .par_iter_mut()
             .for_each(|agent| agent.status = Status::Normal);
         self.agents[target].status = Status::Tagged;
         self.agents[origin].status = Status::UnTaggable;
