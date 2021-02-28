@@ -1,6 +1,6 @@
 use crate::world::World;
 use rand::{prelude::SmallRng, Rng};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Status {
@@ -16,7 +16,7 @@ pub struct Agent {
     rng: SmallRng,
     announce_tag: bool,
     world_size: usize,
-    world_link: Weak<Mutex<World>>,
+    world_link: Arc<Mutex<World>>,
 }
 impl Agent {
     pub fn new(
@@ -31,7 +31,7 @@ impl Agent {
             rng,
             announce_tag,
             world_size,
-            world_link: Arc::downgrade(&world),
+            world_link: world.clone(),
         }
     }
     fn position_sub(&self, n: usize) -> usize {
@@ -64,8 +64,6 @@ impl Agent {
             (self.position.0, self.position_sub(self.position.1)),
         ];
         self.world_link
-            .upgrade()
-            .expect("couldn't upgrade")
             .lock()
             .unwrap()
             .agents
@@ -84,12 +82,7 @@ impl Agent {
                 if self.announce_tag {
                     println!("!!!! FOUND NEIGHBOR !!!!");
                 }
-                self.world_link
-                    .upgrade()
-                    .expect("couldn't upgrade")
-                    .lock()
-                    .unwrap()
-                    .tag_agent(my_index, target);
+                self.world_link.lock().unwrap().tag_agent(my_index, target);
             }
         };
     }
