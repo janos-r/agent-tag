@@ -28,7 +28,11 @@ fn main() {
             world.borrow().print_grid();
             println!("| |{}| |", "__".repeat(size));
             println!(" __{}__", "__".repeat(size));
+            world.borrow().print_tag_count()
         }
         World::tick(&world, &mut rng, disable_grid, sleep_in_millis)
+    }
+    if disable_grid {
+        world.borrow().print_tag_count()
     }
 }

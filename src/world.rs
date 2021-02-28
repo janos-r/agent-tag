@@ -9,6 +9,7 @@ pub struct World {
     pub agents: Vec<Agent>,
     pub grid: Grid,
     pub size: usize,
+    pub tag_count: u32,
 }
 impl World {
     pub fn new(n_of_agents: usize, size: usize, announce_tag: bool) -> Rc<RefCell<World>> {
@@ -16,6 +17,7 @@ impl World {
             agents: Vec::new(),
             grid: Vec::with_capacity(size),
             size,
+            tag_count: 0,
         };
 
         // create link to world
@@ -79,6 +81,7 @@ impl World {
             .for_each(|agent| agent.move_position(rng));
     }
     pub fn tag_agent(&mut self, origin: usize, target: usize) {
+        self.tag_count += 1;
         self.agents
             .iter_mut()
             .for_each(|agent| agent.status = Status::Normal);
@@ -98,5 +101,8 @@ impl World {
                 .collect();
             println!("| |{}| |", line)
         });
+    }
+    pub fn print_tag_count(&self) {
+        println!("Total count of exchanged tags: {}", self.tag_count)
     }
 }
