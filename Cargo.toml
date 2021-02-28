@@ -2,6 +2,7 @@
 authors = ["Radim Janoš <radim.janos@apitree.cz>"]
 edition = "2018"
 name = "agent-tag"
+repository = "https://github.com/janos-r/agent-tag"
 version = "0.1.0"
 
 [dependencies]

@@ -11,7 +11,7 @@ pub struct World {
     pub size: usize,
 }
 impl World {
-    pub fn new(n_of_agents: usize, size: usize) -> Rc<RefCell<World>> {
+    pub fn new(n_of_agents: usize, size: usize, announce_tag: bool) -> Rc<RefCell<World>> {
         let world = World {
             agents: Vec::new(),
             grid: Vec::with_capacity(size),
@@ -24,7 +24,7 @@ impl World {
         // generate agents and add to world
         let mut rng = thread_rng();
         for _ in 0..n_of_agents {
-            let agent = Agent::new(&mut rng, size, &world_link);
+            let agent = Agent::new(&mut rng, announce_tag, size, &world_link);
             world_link.borrow_mut().agents.push(agent);
         }
 
@@ -37,13 +37,13 @@ impl World {
 
         world_link
     }
-    pub fn tick(world: &Rc<RefCell<World>>, rng: &mut ThreadRng, sleep_in_millis: u64) {
-        // move agents
-        world
-            .borrow_mut()
-            .agents
-            .iter_mut()
-            .for_each(|agent| agent.move_position(rng));
+    pub fn tick(
+        world: &Rc<RefCell<World>>,
+        rng: &mut ThreadRng,
+        disable_grid: bool,
+        sleep_in_millis: u64,
+    ) {
+        world.borrow_mut().move_agents(rng);
 
         // regret: this still feels like a hack to me
         // tag agents
@@ -53,9 +53,13 @@ impl World {
             .enumerate()
             .for_each(|(index, agent)| agent.tag(index));
 
-        // update grid
-        world.borrow_mut().update_grid();
-        thread::sleep(Duration::from_millis(sleep_in_millis));
+        if !disable_grid {
+            world.borrow_mut().update_grid();
+        }
+
+        if sleep_in_millis > 0 {
+            thread::sleep(Duration::from_millis(sleep_in_millis));
+        }
     }
 
     pub fn update_grid(&mut self) {
@@ -68,6 +72,11 @@ impl World {
             new_grid[agent.position.1][agent.position.0] = Some(agent.status.clone())
         });
         self.grid = new_grid;
+    }
+    fn move_agents(&mut self, rng: &mut ThreadRng) {
+        self.agents
+            .iter_mut()
+            .for_each(|agent| agent.move_position(rng));
     }
     pub fn tag_agent(&mut self, origin: usize, target: usize) {
         self.agents

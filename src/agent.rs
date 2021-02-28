@@ -3,8 +3,6 @@ use rand::{prelude::ThreadRng, Rng};
 use std::rc::Rc;
 use std::{cell::RefCell, rc::Weak};
 
-type Position = (usize, usize);
-
 #[derive(Clone, PartialEq, Debug)]
 pub enum Status {
     Normal,
@@ -14,18 +12,25 @@ pub enum Status {
 
 #[derive(Clone)]
 pub struct Agent {
-    pub position: Position,
+    pub position: (usize, usize),
     pub status: Status,
+    announce_tag: bool,
     world_size: usize,
-    world: Weak<RefCell<World>>,
+    world_link: Weak<RefCell<World>>,
 }
 impl Agent {
-    pub fn new(rng: &mut ThreadRng, world_size: usize, world: &Rc<RefCell<World>>) -> Self {
+    pub fn new(
+        rng: &mut ThreadRng,
+        announce_tag: bool,
+        world_size: usize,
+        world: &Rc<RefCell<World>>,
+    ) -> Self {
         Agent {
             position: (rng.gen_range(0..world_size), rng.gen_range(0..world_size)),
             status: Status::Normal,
+            announce_tag,
             world_size,
-            world: Rc::downgrade(world),
+            world_link: Rc::downgrade(world),
         }
     }
     fn position_sub(&self, n: usize) -> usize {
@@ -51,20 +56,19 @@ impl Agent {
         }
     }
     fn find_neighbor(&self) -> Option<usize> {
-        self.world
+        let neighbors = [
+            (self.position_add(self.position.0), self.position.1),
+            (self.position_sub(self.position.0), self.position.1),
+            (self.position.0, self.position_add(self.position.1)),
+            (self.position.0, self.position_sub(self.position.1)),
+        ];
+        self.world_link
             .upgrade()
             .expect("couldn't upgrade")
-            // regret: don't know why just '.borrow()' doesn't work - can't infer type parameter
-            .borrow_mut()
+            .borrow()
             .agents
             .iter()
             .position(|agent| {
-                let neighbors = [
-                    (self.position_add(self.position.0), self.position.1),
-                    (self.position_sub(self.position.0), self.position.1),
-                    (self.position.0, self.position_add(self.position.1)),
-                    (self.position.0, self.position_sub(self.position.1)),
-                ];
                 neighbors.iter().any(|&neighbor_position| {
                     neighbor_position == agent.position && agent.status != Status::UnTaggable
                 })
@@ -75,8 +79,10 @@ impl Agent {
         // only it's links or current state are useful
         if self.status == Status::Tagged {
             if let Some(target) = self.find_neighbor() {
-                println!("!!!! FOUND NEIGHBOR !!!!");
-                self.world
+                if self.announce_tag {
+                    println!("!!!! FOUND NEIGHBOR !!!!");
+                }
+                self.world_link
                     .upgrade()
                     .expect("couldn't upgrade")
                     .borrow_mut()
