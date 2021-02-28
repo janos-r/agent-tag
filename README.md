@@ -6,9 +6,15 @@
 
 A tag game simulator with simple agents
 
-# Simulation rules
+## Simulation rules
 
+### Movement
 
+All agents move on every tic one space in one of their neighboring directions (up, down, left right) on random. If they cross a wall, they pop out on the other side.
+
+### Tagging
+
+At the start, one agent is chosen as "it" on random. If and another agent come next to each other (on one of the four directions) the tag is exchanged. The previously tagged agent becomes impossible to tag again, until another tag is exchanged.
 
 ## Build
 
