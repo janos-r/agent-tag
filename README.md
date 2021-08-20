@@ -79,7 +79,7 @@ OPTIONS:
 
 ### Very simple benchmark
 
-Just running `time` (the common linux tool). This example runs with a 10.000 moves. When -t0 is set, there is no thread sleep called between the moves. Toggling the -d flag shows how much time is spent on the graphical aspect of the program.
+Just running `time` (the common linux tool). This example runs with 10.000 moves. When -t0 is set, there is no thread sleep called between the moves. Toggling the -d flag shows how much time is spent on the graphical aspect of the program.
 
 ``` shell
 time target/release/agent-tag -t0 -m10000 -d

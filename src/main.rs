@@ -26,7 +26,7 @@ fn main() {
             println!("|  {}  |", "__".repeat(size));
             world.lock().unwrap().print_grid();
             println!("| |{}| |", "__".repeat(size));
-            println!(" __{}__", "__".repeat(size));
+            println!("|__{}__|", "__".repeat(size));
             world.lock().unwrap().print_tag_count()
         }
         World::tick(&world, disable_grid, sleep_in_millis)
